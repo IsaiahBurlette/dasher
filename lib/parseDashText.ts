@@ -173,6 +173,23 @@ function resolveDashAndActiveMinutes(lines: string[], dashRe: RegExp, activeRe: 
   };
 }
 
+const MONTH_ABBR = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec";
+
+/**
+ * DoorDash's weekly earnings overview (a date range like "Jul 20 - Jul 26", a
+ * "Weekly goal" progress bar, and a list of individual dashes by date) shows
+ * active/dash time and deliveries *totaled across the whole week*, not for one
+ * dash, and has no per-dash clock time or "Total Pay" label at all. Detecting
+ * it lets us tell the user to screenshot an individual dash instead of just
+ * reporting a handful of fields as unreadable.
+ */
+function looksLikeWeeklySummary(text: string): boolean {
+  if (/weekly goal/i.test(text)) return true;
+  const dateRange = new RegExp(`\\b(${MONTH_ABBR})\\s+\\d{1,2}\\s*-\\s*(${MONTH_ABBR})?\\s*\\d{1,2}\\b`, "i");
+  const hasClockTime = /\d{1,2}:\d{2}\s*[AaPp]\.?[Mm]\.?/.test(text);
+  return dateRange.test(text) && !hasClockTime;
+}
+
 /**
  * Parses OCR text from a DoorDash dash-summary screenshot into structured fields.
  * This is a best-effort heuristic parser — the caller should always let the user
@@ -199,6 +216,13 @@ export function parseDashText(text: string): ExtractedDashData {
     earnings,
     deliveries
   };
+
+  if (looksLikeWeeklySummary(text)) {
+    result.warning =
+      "This looks like a weekly summary, not a single dash — its time/deliveries are totals for the whole week. " +
+      "For accurate hourly rates, open an individual dash from the list and screenshot that instead.";
+    return result;
+  }
 
   const missing = (["startTime", "endTime", "dashTimeMinutes", "activeTimeMinutes", "earnings"] as const).filter(
     (key) => result[key] == null
