@@ -1,5 +1,5 @@
 import type { DashEntry } from "./types";
-import { DAY_NAMES, dayOfWeekIndex, minutesToHours, parseHHMM } from "./time";
+import { DAY_NAMES, dayOfWeekIndex, minutesBetween, minutesToHours, parseHHMM } from "./time";
 
 export interface EntryRates {
   activeRate: number;
@@ -66,7 +66,7 @@ function summarizeGroup(key: string, label: string, group: DashEntry[]): GroupSt
 }
 
 /** Monday..Sunday order (matching the work week), always returning all 7 (count may be 0). */
-const MONDAY_FIRST_ORDER = [1, 2, 3, 4, 5, 6, 0];
+export const MONDAY_FIRST_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 /** Stats bucketed by day of week, Monday..Sunday, always returning all 7 (count may be 0). */
 export function byDayOfWeek(entries: DashEntry[]): GroupStat[] {
@@ -194,4 +194,115 @@ export function timeSeries(entries: DashEntry[]): TimeSeriesPoint[] {
       const { activeRate, dashRate } = ratesFor(e);
       return { date: e.date, earnings: e.earnings, activeRate, dashRate };
     });
+}
+
+/** Which hours (0-23) a clock window touches, walking forward from the start hour and wrapping past midnight. */
+function hoursInWindow(startMinutes: number, endMinutes: number): number[] {
+  const totalMinutes = endMinutes > startMinutes ? endMinutes - startMinutes : 24 * 60 - startMinutes + endMinutes;
+  const hourCount = Math.max(1, Math.ceil(totalMinutes / 60));
+  const startHour = Math.floor(startMinutes / 60) % 24;
+  const hours: number[] = [];
+  let hour = startHour;
+  for (let i = 0; i < hourCount; i++) {
+    hours.push(hour);
+    hour = (hour + 1) % 24;
+  }
+  return Array.from(new Set(hours));
+}
+
+export type EstimateConfidence = "day+hour" | "day" | "hour" | "overall" | "none";
+
+export interface RateEstimate {
+  activeRate: number;
+  dashRate: number;
+  sampleSize: number;
+  confidence: EstimateConfidence;
+}
+
+/**
+ * Estimates a $/hr rate for a given day-of-week + clock window, falling back
+ * through progressively broader (and less specific) slices of history when
+ * there isn't enough data for the exact combination:
+ *   1. dashes on that weekday, starting within that window
+ *   2. dashes on that weekday, any time
+ *   3. dashes in that window, any day
+ *   4. overall average across everything logged
+ * `confidence` tells the caller which tier was actually used.
+ */
+export function estimateRateForDayAndWindow(
+  entries: DashEntry[],
+  dayIdx: number,
+  startMinutes: number,
+  endMinutes: number
+): RateEstimate {
+  const hours = hoursInWindow(startMinutes, endMinutes);
+  const startHourOf = (e: DashEntry): number | null => {
+    const minutes = parseHHMM(e.startTime);
+    return minutes === null ? null : Math.floor(minutes / 60);
+  };
+
+  const dayAndHour = entries.filter((e) => dayOfWeekIndex(e.date) === dayIdx && hours.includes(startHourOf(e) ?? -1));
+  if (dayAndHour.length > 0) {
+    const s = overallSummary(dayAndHour);
+    return { activeRate: s.avgActiveRate, dashRate: s.avgDashRate, sampleSize: dayAndHour.length, confidence: "day+hour" };
+  }
+
+  const dayOnly = entries.filter((e) => dayOfWeekIndex(e.date) === dayIdx);
+  if (dayOnly.length > 0) {
+    const s = overallSummary(dayOnly);
+    return { activeRate: s.avgActiveRate, dashRate: s.avgDashRate, sampleSize: dayOnly.length, confidence: "day" };
+  }
+
+  const hourOnly = entries.filter((e) => hours.includes(startHourOf(e) ?? -1));
+  if (hourOnly.length > 0) {
+    const s = overallSummary(hourOnly);
+    return { activeRate: s.avgActiveRate, dashRate: s.avgDashRate, sampleSize: hourOnly.length, confidence: "hour" };
+  }
+
+  if (entries.length > 0) {
+    const s = overallSummary(entries);
+    return { activeRate: s.avgActiveRate, dashRate: s.avgDashRate, sampleSize: entries.length, confidence: "overall" };
+  }
+
+  return { activeRate: NaN, dashRate: NaN, sampleSize: 0, confidence: "none" };
+}
+
+export interface TimeFrameEstimate {
+  startTime: string;
+  endTime: string;
+  hours: number;
+  estimatedEarnings: number;
+  activeRate: number;
+  dashRate: number;
+  sampleSize: number;
+  confidence: EstimateConfidence;
+}
+
+/** Projects earnings for a set of clock time frames on a given day of week, based on historical rates (see estimateRateForDayAndWindow). */
+export function estimateDayEarnings(
+  entries: DashEntry[],
+  dayIdx: number,
+  timeFrames: { startTime: string; endTime: string }[]
+): TimeFrameEstimate[] {
+  return timeFrames.map(({ startTime, endTime }) => {
+    const startMinutes = parseHHMM(startTime);
+    const endMinutes = parseHHMM(endTime);
+    if (startMinutes === null || endMinutes === null) {
+      return { startTime, endTime, hours: 0, estimatedEarnings: 0, activeRate: NaN, dashRate: NaN, sampleSize: 0, confidence: "none" };
+    }
+    const totalMinutes = minutesBetween(startTime, endTime) ?? 0;
+    const hours = minutesToHours(totalMinutes);
+    const est = estimateRateForDayAndWindow(entries, dayIdx, startMinutes, endMinutes);
+    const estimatedEarnings = Number.isFinite(est.dashRate) ? est.dashRate * hours : 0;
+    return {
+      startTime,
+      endTime,
+      hours,
+      estimatedEarnings,
+      activeRate: est.activeRate,
+      dashRate: est.dashRate,
+      sampleSize: est.sampleSize,
+      confidence: est.confidence
+    };
+  });
 }

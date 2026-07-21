@@ -10,16 +10,18 @@ import StatsSummary from "@/components/StatsSummary";
 import HistoryView from "@/components/HistoryView";
 import BestTimesPanel from "@/components/BestTimesPanel";
 import TimeWindowsPanel from "@/components/TimeWindowsPanel";
+import CalculatorPanel from "@/components/CalculatorPanel";
 import EarningsRateChart from "@/components/charts/EarningsRateChart";
 import EarningsOverTimeChart from "@/components/charts/EarningsOverTimeChart";
 import GroupRateChart from "@/components/charts/GroupRateChart";
 
-type Tab = "add" | "history" | "insights";
+type Tab = "add" | "history" | "insights" | "calculator";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "add", label: "Add" },
   { id: "history", label: "History" },
-  { id: "insights", label: "Insights" }
+  { id: "insights", label: "Insights" },
+  { id: "calculator", label: "Calculator" }
 ];
 
 export default function Home() {
@@ -191,6 +193,8 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {tab === "calculator" && <CalculatorPanel entries={entries} />}
 
           <p className="pb-6 text-center text-xs text-neutral-400">
             {isSignedIn
