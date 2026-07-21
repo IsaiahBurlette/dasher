@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useAuth } from "@/lib/authContext";
 import { useDashEntries } from "@/hooks/useDashEntries";
 import { exportEntriesAsJSON } from "@/lib/storage";
+import { exportBackupFile } from "@/lib/exportBackup";
 import { byDayOfWeek, byStartHour } from "@/lib/calculations";
 import UploadFlow from "@/components/UploadFlow";
 import StatsSummary from "@/components/StatsSummary";
@@ -46,14 +47,12 @@ export default function Home() {
     setWeeklyGoal
   } = useDashEntries();
 
-  function handleExport() {
-    const blob = new Blob([exportEntriesAsJSON(entries)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `dasher-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function handleExport() {
+    try {
+      await exportBackupFile(exportEntriesAsJSON(entries));
+    } catch {
+      alert("Couldn't export backup. Please try again.");
+    }
   }
 
   async function handleImport(file: File) {
