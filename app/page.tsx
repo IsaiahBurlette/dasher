@@ -25,7 +25,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function Home() {
-  const [tab, setTab] = useState<Tab>("add");
+  const [tab, setTab] = useState<Tab>("insights");
   const [authError, setAuthError] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const { user, authLoading, isCloudAvailable, signInWithGoogle, signOutUser } = useAuth();
