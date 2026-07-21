@@ -52,8 +52,10 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftEntry>(emptyDraft());
+  const [justSaved, setJustSaved] = useState(false);
 
   async function handleFile(file: File) {
+    setJustSaved(false);
     setFileName(file.name);
     setPreview(URL.createObjectURL(file));
     setStatus("loading");
@@ -102,7 +104,13 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  function dismissCancel() {
+    setJustSaved(false);
+    reset();
+  }
+
   function handleManualEntry() {
+    setJustSaved(false);
     setPreview(null);
     setFileName(null);
     setErrorMessage(null);
@@ -138,6 +146,8 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
     const entry = addEntry(input);
     onSaved(entry);
     reset();
+    setJustSaved(true);
+    window.setTimeout(() => setJustSaved(false), 3000);
   }
 
   return (
@@ -146,6 +156,11 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
 
       {status === "idle" && (
         <div className="space-y-3">
+          {justSaved && (
+            <p className="rounded-lg bg-green-50 p-3 text-center text-sm font-medium text-green-700 dark:bg-green-950 dark:text-green-300">
+              ✓ Dash saved
+            </p>
+          )}
           <label className="flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 hover:border-brand-400 hover:text-brand-500 dark:border-neutral-700 dark:text-neutral-400 sm:p-10">
             <span className="text-2xl">📸</span>
             <span>Tap to take a photo or upload a screenshot of your dash summary</span>
@@ -301,7 +316,7 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
                 Save dash
               </button>
               <button
-                onClick={reset}
+                onClick={dismissCancel}
                 className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
               >
                 Cancel
