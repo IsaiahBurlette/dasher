@@ -1,18 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import type { DashEntry } from "@/lib/types";
+import type { DashEntry, NewDashEntryInput } from "@/lib/types";
 import { ratesFor } from "@/lib/calculations";
 import { groupByWeekThenDay } from "@/lib/grouping";
-import { deleteEntry, updateEntry } from "@/lib/storage";
 import { formatDuration, formatFriendlyTime, formatMoney, formatRate } from "@/lib/time";
 
 interface Props {
   entries: DashEntry[];
-  onChange: (entries: DashEntry[]) => void;
+  onUpdate: (id: string, patch: Partial<NewDashEntryInput>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }
 
-export default function HistoryView({ entries, onChange }: Props) {
+export default function HistoryView({ entries, onUpdate, onDelete }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [mileageDraft, setMileageDraft] = useState<string>("");
 
@@ -21,17 +21,15 @@ export default function HistoryView({ entries, onChange }: Props) {
     setMileageDraft(entry.mileage != null ? String(entry.mileage) : "");
   }
 
-  function saveMileage(id: string) {
+  async function saveMileage(id: string) {
     const value = mileageDraft.trim() === "" ? null : Number(mileageDraft);
-    const next = updateEntry(id, { mileage: Number.isFinite(value as number) ? value : null });
-    onChange(next);
     setEditingId(null);
+    await onUpdate(id, { mileage: Number.isFinite(value as number) ? value : null });
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!window.confirm("Delete this dash? This can't be undone.")) return;
-    const next = deleteEntry(id);
-    onChange(next);
+    await onDelete(id);
   }
 
   if (entries.length === 0) {

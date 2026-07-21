@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import type { DashEntry, ExtractedDashData, NewDashEntryInput } from "@/lib/types";
 import { minutesBetween, todayISODate } from "@/lib/time";
-import { addEntry } from "@/lib/storage";
 import { recognizeText } from "@/lib/ocr";
 import { parseDashText } from "@/lib/parseDashText";
 
@@ -66,7 +65,7 @@ function extractedToDraft(data: ExtractedDashData): DraftEntry {
   return draft;
 }
 
-export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) => void }) {
+export default function UploadFlow({ onSave }: { onSave: (input: NewDashEntryInput) => Promise<DashEntry> }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -76,6 +75,7 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
   const [warning, setWarning] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftEntry>(emptyDraft());
   const [justSaved, setJustSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function handleFile(file: File) {
     setJustSaved(false);
@@ -140,7 +140,7 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
     setStatus("review");
   }
 
-  function handleSave() {
+  async function handleSave() {
     const earnings = Number(draft.earnings);
     const dashTimeMinutes = Number(draft.dashHours || 0) * 60 + Number(draft.dashMinutes || 0);
     const activeTimeMinutes = Number(draft.activeHours || 0) * 60 + Number(draft.activeMinutes || 0);
@@ -164,11 +164,17 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
       notes: draft.notes,
       sourceFileName: fileName
     };
-    const entry = addEntry(input);
-    onSaved(entry);
-    reset();
-    setJustSaved(true);
-    window.setTimeout(() => setJustSaved(false), 3000);
+    setSaving(true);
+    try {
+      await onSave(input);
+      reset();
+      setJustSaved(true);
+      window.setTimeout(() => setJustSaved(false), 3000);
+    } catch {
+      setErrorMessage("Couldn't save that dash — check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -340,13 +346,15 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleSave}
-                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+                disabled={saving}
+                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
               >
-                Save dash
+                {saving ? "Saving..." : "Save dash"}
               </button>
               <button
                 onClick={dismissCancel}
-                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                disabled={saving}
+                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-60 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
               >
                 Cancel
               </button>
