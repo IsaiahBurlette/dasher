@@ -82,9 +82,20 @@ function extractDurationMinutes(snippet: string): number | null {
   return null;
 }
 
+/**
+ * Extracts a dollar amount from a snippet like "$31.70". OCR frequently misreads the
+ * "$" as a capital "S" (similar glyph shape) and sometimes drops the decimal point
+ * entirely, turning "$31.70" into "S31 70" — so a couple of fallback patterns cover
+ * that before giving up.
+ */
 function extractMoney(snippet: string): number | null {
-  const m = /\$\s?(\d{1,4}(?:\.\d{2})?)/.exec(snippet);
-  return m ? Number(m[1]) : null;
+  let m = /\$\s?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/.exec(snippet);
+  if (m) return Number(m[1].replace(/,/g, ""));
+
+  m = /\bS\s?(\d{1,3}(?:,\d{3})*)[\s.](\d{2})\b/.exec(snippet);
+  if (m) return Number(`${m[1].replace(/,/g, "")}.${m[2]}`);
+
+  return null;
 }
 
 function extractInt(snippet: string): number | null {
