@@ -64,20 +64,25 @@ export default function HistoryView({ entries, onUpdate, onDelete }: Props) {
             </div>
           </summary>
 
-          <div className="space-y-4 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800">
-            {week.days.map((day) => (
-              <div key={day.date}>
-                <div className="mb-2 flex items-baseline justify-between">
-                  <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                    {day.dayName}, {day.date}
-                  </h4>
-                  {day.entries.length > 1 && (
-                    <span className="text-xs text-neutral-400">
-                      {day.entries.length} dashes &middot; {formatMoney(day.totalEarnings)} total
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-2">
+          <div className="space-y-2 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800">
+            {week.days.map((day, dayIdx) => (
+              <details
+                key={day.date}
+                open={weekIdx === 0 && dayIdx === 0}
+                className="group/day rounded-lg border border-neutral-100 dark:border-neutral-800"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 [&::-webkit-details-marker]:hidden">
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-400 transition-transform group-open/day:rotate-90">›</span>
+                    <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                      {day.dayName}, {day.date}
+                    </h4>
+                  </div>
+                  <span className="text-xs text-neutral-400">
+                    {day.entries.length} dash{day.entries.length === 1 ? "" : "es"} &middot; {formatMoney(day.totalEarnings)}
+                  </span>
+                </summary>
+                <div className="space-y-2 border-t border-neutral-100 px-3 pb-3 pt-2 dark:border-neutral-800">
                   {day.entries.map((entry) => {
                     const { activeRate, dashRate } = ratesFor(entry);
                     return (
@@ -130,7 +135,7 @@ export default function HistoryView({ entries, onUpdate, onDelete }: Props) {
                     );
                   })}
                 </div>
-              </div>
+              </details>
             ))}
           </div>
         </details>
