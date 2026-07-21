@@ -9,7 +9,7 @@ import UploadFlow from "@/components/UploadFlow";
 import StatsSummary from "@/components/StatsSummary";
 import HistoryView from "@/components/HistoryView";
 import BestTimesPanel from "@/components/BestTimesPanel";
-import ShiftSummaryPanel from "@/components/ShiftSummaryPanel";
+import TimeWindowsPanel from "@/components/TimeWindowsPanel";
 import EarningsRateChart from "@/components/charts/EarningsRateChart";
 import EarningsOverTimeChart from "@/components/charts/EarningsOverTimeChart";
 import GroupRateChart from "@/components/charts/GroupRateChart";
@@ -182,7 +182,7 @@ export default function Home() {
             <div className="space-y-6">
               <StatsSummary entries={entries} />
               <BestTimesPanel entries={entries} />
-              <ShiftSummaryPanel entries={entries} />
+              <TimeWindowsPanel entries={entries} />
               <div className="grid gap-6 lg:grid-cols-2">
                 <EarningsRateChart entries={entries} />
                 <EarningsOverTimeChart entries={entries} />

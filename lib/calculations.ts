@@ -97,48 +97,77 @@ function formatHourLabel(hour: number): string {
   return `${h12} ${period}`;
 }
 
-export interface Shift {
-  key: string;
-  label: string;
-  /** Hour (0-23) the shift starts. */
+/** A rough, purely descriptive time-of-day label — not a boundary definition. */
+function descriptiveLabelForHour(hour: number): string {
+  if (hour >= 5 && hour < 11) return "Morning";
+  if (hour >= 11 && hour < 14) return "Midday";
+  if (hour >= 14 && hour < 17) return "Afternoon";
+  if (hour >= 17 && hour < 21) return "Evening";
+  return "Late Night";
+}
+
+export interface TimeWindowStat extends GroupStat {
+  timeRange: string;
   startHour: number;
-  /** Hour (0-23) the shift ends (exclusive). May be less than startHour to wrap past midnight. */
   endHour: number;
 }
 
-/** Typical gig-delivery meal shifts, covering the full 24 hours with no gaps or overlaps. */
-export const SHIFTS: Shift[] = [
-  { key: "breakfast", label: "Breakfast", startHour: 6, endHour: 10 },
-  { key: "lunch", label: "Lunch", startHour: 10, endHour: 14 },
-  { key: "afternoon", label: "Afternoon", startHour: 14, endHour: 17 },
-  { key: "dinner", label: "Dinner", startHour: 17, endHour: 21 },
-  { key: "late_night", label: "Late Night", startHour: 21, endHour: 6 }
-];
+/**
+ * Finds the contiguous blocks of hours the user actually dashes in — e.g. if
+ * someone logs dashes at 11am, noon, and 1pm but nothing at 2-4pm, then dashes
+ * again at 5-8pm, that's two windows: 11am-2pm and 5-9pm. Unlike fixed meal
+ * hours ("lunch is 10am-2pm"), this adapts to whatever times the data shows,
+ * since peak hours vary a lot by market. Hours with zero logged dashes create
+ * a break between windows; a window that reaches hour 23 and one that starts
+ * at hour 0 are merged, since that's really one continuous block across
+ * midnight.
+ */
+export function detectTimeWindows(entries: DashEntry[]): TimeWindowStat[] {
+  const byHour = new Map<number, DashEntry[]>();
+  for (const e of entries) {
+    const minutes = parseHHMM(e.startTime);
+    if (minutes === null) continue;
+    const hour = Math.floor(minutes / 60);
+    if (!byHour.has(hour)) byHour.set(hour, []);
+    byHour.get(hour)!.push(e);
+  }
 
-export function formatShiftRange(shift: Shift): string {
-  return `${formatHourLabel(shift.startHour)} – ${formatHourLabel(shift.endHour)}`;
-}
+  const hoursWithData = Array.from(byHour.keys()).sort((a, b) => a - b);
+  if (hoursWithData.length === 0) return [];
 
-function hourInShift(hour: number, shift: Shift): boolean {
-  return shift.startHour < shift.endHour
-    ? hour >= shift.startHour && hour < shift.endHour
-    : hour >= shift.startHour || hour < shift.endHour;
-}
+  const runs: number[][] = [[hoursWithData[0]]];
+  for (let i = 1; i < hoursWithData.length; i++) {
+    if (hoursWithData[i] === hoursWithData[i - 1] + 1) {
+      runs[runs.length - 1].push(hoursWithData[i]);
+    } else {
+      runs.push([hoursWithData[i]]);
+    }
+  }
 
-export interface ShiftStat extends GroupStat {
-  timeRange: string;
-}
+  if (runs.length > 1) {
+    const first = runs[0];
+    const last = runs[runs.length - 1];
+    if (first[0] === 0 && last[last.length - 1] === 23) {
+      runs[0] = [...last, ...first];
+      runs.pop();
+    }
+  }
 
-/** Stats bucketed into meal shifts (breakfast/lunch/afternoon/dinner/late night), always returning all 5. */
-export function byShift(entries: DashEntry[]): ShiftStat[] {
-  return SHIFTS.map((shift) => {
-    const group = entries.filter((e) => {
-      const minutes = parseHHMM(e.startTime);
-      if (minutes === null) return false;
-      return hourInShift(Math.floor(minutes / 60), shift);
-    });
-    return { ...summarizeGroup(shift.key, shift.label, group), timeRange: formatShiftRange(shift) };
-  });
+  return runs
+    .map((hours) => {
+      const group = hours.flatMap((h) => byHour.get(h) ?? []);
+      const startHour = hours[0];
+      const endHour = (hours[hours.length - 1] + 1) % 24;
+      const midHour = hours[Math.floor(hours.length / 2)];
+      const timeRange = `${formatHourLabel(startHour)} – ${formatHourLabel(endHour)}`;
+      return {
+        ...summarizeGroup(`${startHour}-${endHour}`, descriptiveLabelForHour(midHour), group),
+        timeRange,
+        startHour,
+        endHour
+      };
+    })
+    .sort((a, b) => a.startHour - b.startHour);
 }
 
 /** Groups with at least this many dashes are eligible for "best" recommendations. */
