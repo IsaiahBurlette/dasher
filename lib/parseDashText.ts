@@ -191,6 +191,19 @@ function looksLikeWeeklySummary(text: string): boolean {
 }
 
 /**
+ * Some DoorDash layouts show the dash's total pay as a bare "$11.65" heading
+ * with no "Total Pay"/"Earnings" label at all — it's just the first thing on
+ * the screen, before the Start Time/End Time/Active Time block (and, further
+ * down, individual order amounts like "$6.20" per delivery). This grabs that
+ * leading dollar figure as a fallback when no labeled amount was found.
+ */
+function findLeadingMoney(text: string): number | null {
+  const statsBlockStart = /start time|dash time|active time|time on dash/i.exec(text);
+  const searchRegion = statsBlockStart ? text.slice(0, statsBlockStart.index) : text;
+  return extractMoney(searchRegion);
+}
+
+/**
  * Parses OCR text from a DoorDash dash-summary screenshot into structured fields.
  * This is a best-effort heuristic parser — the caller should always let the user
  * review and correct the results before saving, since OCR + layout differences
@@ -205,8 +218,25 @@ export function parseDashText(text: string): ExtractedDashData {
     /time on dash|dash time|total time|on[\s-]?dash/i,
     /active time|active/i
   );
-  const earnings = valueNearKeyword(lines, /total pay|total earnings|earnings|you (?:made|earned)/i, extractMoney);
   const deliveries = valueNearKeyword(lines, /deliver(?:y|ies)|orders?/i, extractInt);
+
+  if (looksLikeWeeklySummary(text)) {
+    const result: ExtractedDashData = {
+      startTime: timeRange?.start ?? null,
+      endTime: timeRange?.end ?? null,
+      dashTimeMinutes,
+      activeTimeMinutes,
+      earnings: null,
+      deliveries,
+      warning:
+        "This looks like a weekly summary, not a single dash — its time/deliveries are totals for the whole week. " +
+        "For accurate hourly rates, open an individual dash from the list and screenshot that instead."
+    };
+    return result;
+  }
+
+  const earnings =
+    valueNearKeyword(lines, /total pay|total earnings|earnings|you (?:made|earned)/i, extractMoney) ?? findLeadingMoney(text);
 
   const result: ExtractedDashData = {
     startTime: timeRange?.start ?? null,
@@ -216,13 +246,6 @@ export function parseDashText(text: string): ExtractedDashData {
     earnings,
     deliveries
   };
-
-  if (looksLikeWeeklySummary(text)) {
-    result.warning =
-      "This looks like a weekly summary, not a single dash — its time/deliveries are totals for the whole week. " +
-      "For accurate hourly rates, open an individual dash from the list and screenshot that instead.";
-    return result;
-  }
 
   const missing = (["startTime", "endTime", "dashTimeMinutes", "activeTimeMinutes", "earnings"] as const).filter(
     (key) => result[key] == null
