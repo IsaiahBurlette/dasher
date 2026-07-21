@@ -65,11 +65,14 @@ function summarizeGroup(key: string, label: string, group: DashEntry[]): GroupSt
   };
 }
 
-/** Stats bucketed by day of week, Sunday..Saturday, always returning all 7 (count may be 0). */
+/** Monday..Sunday order (matching the work week), always returning all 7 (count may be 0). */
+const MONDAY_FIRST_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+/** Stats bucketed by day of week, Monday..Sunday, always returning all 7 (count may be 0). */
 export function byDayOfWeek(entries: DashEntry[]): GroupStat[] {
-  return DAY_NAMES.map((name, idx) => {
+  return MONDAY_FIRST_ORDER.map((idx) => {
     const group = entries.filter((e) => dayOfWeekIndex(e.date) === idx);
-    return summarizeGroup(String(idx), name, group);
+    return summarizeGroup(String(idx), DAY_NAMES[idx], group);
   });
 }
 

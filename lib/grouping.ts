@@ -36,10 +36,11 @@ function toISODate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Sunday-start week containing the given date, as an ISO date string. */
+/** Monday-start week containing the given date, as an ISO date string. */
 function weekStartFor(dateStr: string): string {
   const date = parseLocalDate(dateStr);
-  date.setDate(date.getDate() - date.getDay());
+  const daysSinceMonday = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - daysSinceMonday);
   return toISODate(date);
 }
 
@@ -57,7 +58,7 @@ function formatWeekLabel(weekStart: string, weekEnd: string): string {
   return `${fmt(start)} – ${fmt(end)}${yearSuffix}`;
 }
 
-/** Buckets entries into Sunday-start weeks (most recent first), then by day within each week (most recent first). */
+/** Buckets entries into Monday-start weeks (most recent first), then by day within each week (most recent first). */
 export function groupByWeekThenDay(entries: DashEntry[]): WeekGroup[] {
   const byWeek = new Map<string, DashEntry[]>();
   for (const entry of entries) {
