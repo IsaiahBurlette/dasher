@@ -92,7 +92,21 @@ export default function HistoryView({ entries, onUpdate, onDelete }: Props) {
                     {day.entries.length} dash{day.entries.length === 1 ? "" : "es"} &middot; {formatMoney(day.totalEarnings)}
                   </span>
                 </summary>
-                <div className="space-y-2 border-t border-neutral-100 px-3 pb-3 pt-2 dark:border-neutral-800">
+                <div className="space-y-3 border-t border-neutral-100 px-3 pb-3 pt-2 dark:border-neutral-800">
+                  <div className="flex gap-4 text-xs text-neutral-500 dark:text-neutral-400">
+                    <span>
+                      <span className="font-medium text-neutral-700 dark:text-neutral-300">
+                        {formatDuration(day.totalDashHours * 60)}
+                      </span>{" "}
+                      total dash time
+                    </span>
+                    <span>
+                      <span className="font-medium text-neutral-700 dark:text-neutral-300">
+                        {formatDuration(day.totalActiveHours * 60)}
+                      </span>{" "}
+                      total active time
+                    </span>
+                  </div>
                   {day.entries.map((entry) => {
                     const { activeRate, dashRate } = ratesFor(entry);
                     return (

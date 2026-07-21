@@ -8,6 +8,8 @@ export interface DayGroup {
   entries: DashEntry[];
   totalEarnings: number;
   totalMiles: number;
+  totalDashHours: number;
+  totalActiveHours: number;
   avgActiveRate: number;
   avgDashRate: number;
 }
@@ -85,6 +87,8 @@ export function groupByWeekThenDay(entries: DashEntry[]): WeekGroup[] {
           entries: [...dayEntries].sort((a, b) => b.startTime.localeCompare(a.startTime)),
           totalEarnings: s.totalEarnings,
           totalMiles: s.totalMiles,
+          totalDashHours: s.totalDashHours,
+          totalActiveHours: s.totalActiveHours,
           avgActiveRate: s.avgActiveRate,
           avgDashRate: s.avgDashRate
         };
