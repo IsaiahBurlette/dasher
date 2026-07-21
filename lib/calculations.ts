@@ -97,6 +97,50 @@ function formatHourLabel(hour: number): string {
   return `${h12} ${period}`;
 }
 
+export interface Shift {
+  key: string;
+  label: string;
+  /** Hour (0-23) the shift starts. */
+  startHour: number;
+  /** Hour (0-23) the shift ends (exclusive). May be less than startHour to wrap past midnight. */
+  endHour: number;
+}
+
+/** Typical gig-delivery meal shifts, covering the full 24 hours with no gaps or overlaps. */
+export const SHIFTS: Shift[] = [
+  { key: "breakfast", label: "Breakfast", startHour: 6, endHour: 10 },
+  { key: "lunch", label: "Lunch", startHour: 10, endHour: 14 },
+  { key: "afternoon", label: "Afternoon", startHour: 14, endHour: 17 },
+  { key: "dinner", label: "Dinner", startHour: 17, endHour: 21 },
+  { key: "late_night", label: "Late Night", startHour: 21, endHour: 6 }
+];
+
+export function formatShiftRange(shift: Shift): string {
+  return `${formatHourLabel(shift.startHour)} – ${formatHourLabel(shift.endHour)}`;
+}
+
+function hourInShift(hour: number, shift: Shift): boolean {
+  return shift.startHour < shift.endHour
+    ? hour >= shift.startHour && hour < shift.endHour
+    : hour >= shift.startHour || hour < shift.endHour;
+}
+
+export interface ShiftStat extends GroupStat {
+  timeRange: string;
+}
+
+/** Stats bucketed into meal shifts (breakfast/lunch/afternoon/dinner/late night), always returning all 5. */
+export function byShift(entries: DashEntry[]): ShiftStat[] {
+  return SHIFTS.map((shift) => {
+    const group = entries.filter((e) => {
+      const minutes = parseHHMM(e.startTime);
+      if (minutes === null) return false;
+      return hourInShift(Math.floor(minutes / 60), shift);
+    });
+    return { ...summarizeGroup(shift.key, shift.label, group), timeRange: formatShiftRange(shift) };
+  });
+}
+
 /** Groups with at least this many dashes are eligible for "best" recommendations. */
 const MIN_SAMPLE_SIZE = 2;
 
