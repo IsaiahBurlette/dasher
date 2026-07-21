@@ -5,7 +5,7 @@ import type { DashEntry } from "@/lib/types";
 import { ratesFor } from "@/lib/calculations";
 import { groupByWeekThenDay } from "@/lib/grouping";
 import { deleteEntry, updateEntry } from "@/lib/storage";
-import { formatFriendlyTime, formatMoney, formatRate } from "@/lib/time";
+import { formatDuration, formatFriendlyTime, formatMoney, formatRate } from "@/lib/time";
 
 interface Props {
   entries: DashEntry[];
@@ -98,7 +98,9 @@ export default function HistoryView({ entries, onChange }: Props) {
                             Delete
                           </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm sm:grid-cols-4">
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm sm:grid-cols-3">
+                          <Stat label="Dash time" value={formatDuration(entry.dashTimeMinutes)} />
+                          <Stat label="Active time" value={formatDuration(entry.activeTimeMinutes)} />
                           <Stat label="Earnings" value={formatMoney(entry.earnings)} />
                           <Stat label="Active $/hr" value={formatRate(activeRate)} />
                           <Stat label="Dash $/hr" value={formatRate(dashRate)} />

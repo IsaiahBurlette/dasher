@@ -10,14 +10,20 @@ Upload a screenshot of a completed DoorDash "dash" summary and get:
 - A "best times to dash" panel that ranks your days/hours by average
   active $/hr (once you've logged a couple of dashes in the same bucket)
 - Manual entry (no screenshot needed) and one-tap delete on any logged dash
+- History organized by week, then by day
 
 ## How it works
 
-Screenshot extraction is done server-side by sending the image to the
-Anthropic API (Claude) with a prompt asking it to read out the dash time,
-active time, earnings, and start/end times as structured JSON. You always
-get a chance to review and correct the extracted numbers (and add mileage)
-before saving.
+Screenshot reading happens entirely on-device: [tesseract.js](https://github.com/naptha/tesseract.js)
+runs OCR in the browser (WebAssembly), and a small parser looks for the
+labels DoorDash uses ("Time on Dash", "Active Time", "Total Pay", etc.) to
+pull out the numbers. The screenshot is never uploaded anywhere, there's no
+API key, and there's no per-image cost.
+
+OCR + layout differences across app versions mean fields can occasionally
+be missed or misread, so you always get a chance to review and correct the
+extracted numbers (and add mileage) before saving — treat the auto-fill as
+a head start, not gospel.
 
 All dash history is stored in your browser's `localStorage` — there is no
 database or account system. Use the "Export backup" / "Import backup"
@@ -27,16 +33,15 @@ buttons on the page to save or restore your history as a JSON file.
 
 ```bash
 npm install
-cp .env.example .env.local
-# edit .env.local and set ANTHROPIC_API_KEY=sk-ant-...
 npm run dev
 ```
 
-Then open http://localhost:3000.
+Then open http://localhost:3000. No environment variables or API keys are
+needed.
 
-`ANTHROPIC_API_KEY` is required for the "upload a screenshot" extraction
-feature (get one at https://console.anthropic.com/). `ANTHROPIC_MODEL` is
-optional and defaults to `claude-sonnet-5`.
+The first time you read a screenshot, your browser downloads tesseract.js's
+open-source OCR engine and English language data (a few MB) from its public
+CDN; it's cached after that, so it only happens once.
 
 ## Notes
 
@@ -49,3 +54,6 @@ optional and defaults to `claude-sonnet-5`.
   home screen (Share → Add to Home Screen) to avoid that.
 - "Best times to dash" needs at least 2 logged dashes in the same
   day-of-week or start-hour bucket before it will rank that bucket.
+- On-device OCR is free but less reliable than a cloud vision model,
+  especially on blurry or oddly-cropped screenshots — double-check the
+  review screen before saving.

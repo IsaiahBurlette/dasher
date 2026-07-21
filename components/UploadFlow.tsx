@@ -4,13 +4,17 @@ import { useRef, useState } from "react";
 import type { DashEntry, ExtractedDashData, NewDashEntryInput } from "@/lib/types";
 import { minutesBetween, todayISODate } from "@/lib/time";
 import { addEntry } from "@/lib/storage";
+import { recognizeText } from "@/lib/ocr";
+import { parseDashText } from "@/lib/parseDashText";
 
 interface DraftEntry {
   date: string;
   startTime: string;
   endTime: string;
-  dashTimeMinutes: string;
-  activeTimeMinutes: string;
+  dashHours: string;
+  dashMinutes: string;
+  activeHours: string;
+  activeMinutes: string;
   earnings: string;
   deliveries: string;
   mileage: string;
@@ -21,24 +25,41 @@ const emptyDraft = (): DraftEntry => ({
   date: todayISODate(),
   startTime: "",
   endTime: "",
-  dashTimeMinutes: "",
-  activeTimeMinutes: "",
+  dashHours: "",
+  dashMinutes: "",
+  activeHours: "",
+  activeMinutes: "",
   earnings: "",
   deliveries: "",
   mileage: "",
   notes: ""
 });
 
+function minutesToParts(totalMinutes: number): { hours: string; minutes: string } {
+  return { hours: String(Math.floor(totalMinutes / 60)), minutes: String(Math.round(totalMinutes % 60)) };
+}
+
 function extractedToDraft(data: ExtractedDashData): DraftEntry {
   const draft = emptyDraft();
   if (data.startTime) draft.startTime = data.startTime;
   if (data.endTime) draft.endTime = data.endTime;
-  if (data.dashTimeMinutes != null) draft.dashTimeMinutes = String(Math.round(data.dashTimeMinutes));
-  else if (data.startTime && data.endTime) {
-    const computed = minutesBetween(data.startTime, data.endTime);
-    if (computed != null) draft.dashTimeMinutes = String(computed);
+
+  let dashTimeMinutes = data.dashTimeMinutes;
+  if (dashTimeMinutes == null && data.startTime && data.endTime) {
+    dashTimeMinutes = minutesBetween(data.startTime, data.endTime);
   }
-  if (data.activeTimeMinutes != null) draft.activeTimeMinutes = String(Math.round(data.activeTimeMinutes));
+  if (dashTimeMinutes != null) {
+    const parts = minutesToParts(dashTimeMinutes);
+    draft.dashHours = parts.hours;
+    draft.dashMinutes = parts.minutes;
+  }
+
+  if (data.activeTimeMinutes != null) {
+    const parts = minutesToParts(data.activeTimeMinutes);
+    draft.activeHours = parts.hours;
+    draft.activeMinutes = parts.minutes;
+  }
+
   if (data.earnings != null) draft.earnings = String(data.earnings);
   if (data.deliveries != null) draft.deliveries = String(data.deliveries);
   return draft;
@@ -49,6 +70,7 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "review" | "error">("idle");
+  const [ocrProgress, setOcrProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftEntry>(emptyDraft());
@@ -59,26 +81,19 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
     setFileName(file.name);
     setPreview(URL.createObjectURL(file));
     setStatus("loading");
+    setOcrProgress(0);
     setErrorMessage(null);
     setWarning(null);
 
-    const formData = new FormData();
-    formData.append("image", file);
-
     try {
-      const res = await fetch("/api/extract", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMessage(data.error || "Extraction failed.");
-        setDraft(emptyDraft());
-        setStatus("error");
-        return;
-      }
-      setDraft(extractedToDraft(data as ExtractedDashData));
-      if ((data as ExtractedDashData).warning) setWarning((data as ExtractedDashData).warning!);
+      const text = await recognizeText(file, setOcrProgress);
+      const extracted = parseDashText(text);
+      setDraft(extractedToDraft(extracted));
+      if (extracted.warning) setWarning(extracted.warning);
       setStatus("review");
     } catch {
-      setErrorMessage("Network error while contacting the extraction API.");
+      setErrorMessage("Couldn't read that screenshot on-device. Try a clearer photo, or enter it manually.");
+      setDraft(emptyDraft());
       setStatus("error");
     }
   }
@@ -88,7 +103,11 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
       const next = { ...prev, [key]: value };
       if ((key === "startTime" || key === "endTime") && next.startTime && next.endTime) {
         const computed = minutesBetween(next.startTime, next.endTime);
-        if (computed != null) next.dashTimeMinutes = String(computed);
+        if (computed != null) {
+          const parts = minutesToParts(computed);
+          next.dashHours = parts.hours;
+          next.dashMinutes = parts.minutes;
+        }
       }
       return next;
     });
@@ -100,6 +119,7 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
     setFileName(null);
     setErrorMessage(null);
     setWarning(null);
+    setOcrProgress(0);
     setDraft(emptyDraft());
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
@@ -121,14 +141,14 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
 
   function handleSave() {
     const earnings = Number(draft.earnings);
-    const dashTimeMinutes = Number(draft.dashTimeMinutes);
-    const activeTimeMinutes = Number(draft.activeTimeMinutes);
+    const dashTimeMinutes = Number(draft.dashHours || 0) * 60 + Number(draft.dashMinutes || 0);
+    const activeTimeMinutes = Number(draft.activeHours || 0) * 60 + Number(draft.activeMinutes || 0);
     if (!draft.startTime || !draft.endTime) {
       setErrorMessage("Start and end time are required.");
       return;
     }
-    if (!Number.isFinite(earnings) || !Number.isFinite(dashTimeMinutes) || !Number.isFinite(activeTimeMinutes)) {
-      setErrorMessage("Earnings, dash time, and active time must be numbers.");
+    if (!Number.isFinite(earnings)) {
+      setErrorMessage("Earnings must be a number.");
       return;
     }
     const input: NewDashEntryInput = {
@@ -164,7 +184,9 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
           <label className="flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 hover:border-brand-400 hover:text-brand-500 dark:border-neutral-700 dark:text-neutral-400 sm:p-10">
             <span className="text-2xl">📸</span>
             <span>Tap to take a photo or upload a screenshot of your dash summary</span>
-            <span className="text-xs text-neutral-400">PNG or JPG, up to 10MB</span>
+            <span className="text-xs text-neutral-400">
+              PNG or JPG, up to 10MB &middot; read on-device, never uploaded anywhere
+            </span>
             <input
               ref={fileInputRef}
               type="file"
@@ -195,7 +217,7 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
           {preview && <img src={preview} alt="preview" className="max-h-48 rounded-lg border border-neutral-200" />}
           <div className="flex items-center gap-2">
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-400 border-t-transparent" />
-            Reading screenshot...
+            Reading screenshot on-device{ocrProgress > 0 ? ` (${Math.round(ocrProgress * 100)}%)` : "..."}
           </div>
         </div>
       )}
@@ -205,12 +227,20 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
           <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
             {errorMessage}
           </p>
-          <button
-            onClick={reset}
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900"
-          >
-            Try again
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={reset}
+              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900"
+            >
+              Try again
+            </button>
+            <button
+              onClick={handleManualEntry}
+              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            >
+              Enter manually instead
+            </button>
+          </div>
         </div>
       )}
 
@@ -255,22 +285,20 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
                   className="input"
                 />
               </Field>
-              <Field label="Dash time (min)">
-                <input
-                  type="number"
-                  value={draft.dashTimeMinutes}
-                  onChange={(e) => updateDraft("dashTimeMinutes", e.target.value)}
-                  className="input"
-                />
-              </Field>
-              <Field label="Active time (min)">
-                <input
-                  type="number"
-                  value={draft.activeTimeMinutes}
-                  onChange={(e) => updateDraft("activeTimeMinutes", e.target.value)}
-                  className="input"
-                />
-              </Field>
+              <DurationField
+                label="Dash time"
+                hours={draft.dashHours}
+                minutes={draft.dashMinutes}
+                onHoursChange={(v) => updateDraft("dashHours", v)}
+                onMinutesChange={(v) => updateDraft("dashMinutes", v)}
+              />
+              <DurationField
+                label="Active time"
+                hours={draft.activeHours}
+                minutes={draft.activeMinutes}
+                onHoursChange={(v) => updateDraft("activeHours", v)}
+                onMinutesChange={(v) => updateDraft("activeMinutes", v)}
+              />
               <Field label="Earnings ($)">
                 <input
                   type="number"
@@ -335,5 +363,48 @@ function Field({ label, children, className }: { label: string; children: React.
       {label}
       {children}
     </label>
+  );
+}
+
+function DurationField({
+  label,
+  hours,
+  minutes,
+  onHoursChange,
+  onMinutesChange
+}: {
+  label: string;
+  hours: string;
+  minutes: string;
+  onHoursChange: (v: string) => void;
+  onMinutesChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+      {label}
+      <div className="flex items-center gap-1">
+        <input
+          type="number"
+          min={0}
+          value={hours}
+          onChange={(e) => onHoursChange(e.target.value)}
+          className="input w-full min-w-0"
+          placeholder="0"
+          aria-label={`${label} hours`}
+        />
+        <span className="shrink-0 text-neutral-400">hr</span>
+        <input
+          type="number"
+          min={0}
+          max={59}
+          value={minutes}
+          onChange={(e) => onMinutesChange(e.target.value)}
+          className="input w-full min-w-0"
+          placeholder="0"
+          aria-label={`${label} minutes`}
+        />
+        <span className="shrink-0 text-neutral-400">min</span>
+      </div>
+    </div>
   );
 }
