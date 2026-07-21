@@ -19,6 +19,8 @@ export interface WeekGroup {
   days: DayGroup[];
   totalEarnings: number;
   totalMiles: number;
+  totalDashHours: number;
+  totalActiveHours: number;
   avgActiveRate: number;
   avgDashRate: number;
   count: number;
@@ -98,6 +100,8 @@ export function groupByWeekThenDay(entries: DashEntry[]): WeekGroup[] {
       days,
       totalEarnings: s.totalEarnings,
       totalMiles: s.totalMiles,
+      totalDashHours: s.totalDashHours,
+      totalActiveHours: s.totalActiveHours,
       avgActiveRate: s.avgActiveRate,
       avgDashRate: s.avgDashRate,
       count: weekEntries.length

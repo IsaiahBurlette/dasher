@@ -64,7 +64,17 @@ export default function HistoryView({ entries, onUpdate, onDelete }: Props) {
             </div>
           </summary>
 
-          <div className="space-y-2 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800">
+          <div className="space-y-4 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800">
+            <div className="flex gap-4 text-xs text-neutral-500 dark:text-neutral-400">
+              <span>
+                <span className="font-medium text-neutral-700 dark:text-neutral-300">{formatDuration(week.totalDashHours * 60)}</span>{" "}
+                total dash time
+              </span>
+              <span>
+                <span className="font-medium text-neutral-700 dark:text-neutral-300">{formatDuration(week.totalActiveHours * 60)}</span>{" "}
+                total active time
+              </span>
+            </div>
             {week.days.map((day, dayIdx) => (
               <details
                 key={day.date}
