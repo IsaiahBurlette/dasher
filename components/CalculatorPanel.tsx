@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { DashEntry } from "@/lib/types";
 import { MONDAY_FIRST_ORDER, estimateDayEarnings, type EstimateConfidence } from "@/lib/calculations";
+import { currentWeekProgress } from "@/lib/grouping";
 import { DAY_NAMES, formatDuration, formatFriendlyTime, formatMoney, formatRate } from "@/lib/time";
 
 interface TimeFrameInput {
@@ -29,7 +30,7 @@ function confidenceNote(confidence: EstimateConfidence, dayName: string, sampleS
   }
 }
 
-export default function CalculatorPanel({ entries }: { entries: DashEntry[] }) {
+export default function CalculatorPanel({ entries, weeklyGoal }: { entries: DashEntry[]; weeklyGoal: number | null }) {
   const [dayIdx, setDayIdx] = useState<number>(1); // Monday
   const [frames, setFrames] = useState<TimeFrameInput[]>([emptyFrame()]);
 
@@ -44,6 +45,8 @@ export default function CalculatorPanel({ entries }: { entries: DashEntry[] }) {
 
   const total = estimates.reduce((sum, e) => sum + e.estimatedEarnings, 0);
   const totalHours = estimates.reduce((sum, e) => sum + e.hours, 0);
+  const weekSoFar = currentWeekProgress(entries).totalEarnings;
+  const projectedWeekTotal = weekSoFar + total;
 
   function updateFrame(id: string, patch: Partial<TimeFrameInput>) {
     setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
@@ -159,6 +162,15 @@ export default function CalculatorPanel({ entries }: { entries: DashEntry[] }) {
             </div>
             <div className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{formatMoney(total)}</div>
           </div>
+
+          {weeklyGoal != null && (
+            <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+              You've made {formatMoney(weekSoFar)} this week. Add this shift and you'd be at{" "}
+              <span className="font-medium text-neutral-700 dark:text-neutral-200">{formatMoney(projectedWeekTotal)}</span> of
+              your {formatMoney(weeklyGoal)} weekly goal
+              {projectedWeekTotal >= weeklyGoal ? " — enough to hit it! 🎉" : "."}
+            </p>
+          )}
         </div>
       )}
     </div>

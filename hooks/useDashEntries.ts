@@ -4,7 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 import type { DashEntry, NewDashEntryInput } from "@/lib/types";
 import { useAuth } from "@/lib/authContext";
 import * as localStore from "@/lib/storage";
-import { subscribeToEntries, addCloudEntry, updateCloudEntry, deleteCloudEntry, importEntriesToCloud } from "@/lib/cloudEntries";
+import {
+  subscribeToEntries,
+  addCloudEntry,
+  updateCloudEntry,
+  deleteCloudEntry,
+  importEntriesToCloud,
+  subscribeToWeeklyGoal,
+  setCloudWeeklyGoal
+} from "@/lib/cloudEntries";
 
 const IMPORTED_FLAG_KEY = "dasher.importedLocalToCloud.v1";
 
@@ -14,6 +22,7 @@ export function useDashEntries() {
   const [loaded, setLoaded] = useState(false);
   const [localBackupAvailable, setLocalBackupAvailable] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [weeklyGoal, setWeeklyGoalState] = useState<number | null>(null);
 
   useEffect(() => {
     setLoaded(false);
@@ -22,11 +31,16 @@ export function useDashEntries() {
         setEntries(cloudEntries);
         setLoaded(true);
       });
+      const unsubscribeGoal = subscribeToWeeklyGoal(user.uid, setWeeklyGoalState);
       const alreadyImported = window.localStorage.getItem(IMPORTED_FLAG_KEY) === "true";
       setLocalBackupAvailable(!alreadyImported && localStore.loadEntries().length > 0);
-      return unsubscribe;
+      return () => {
+        unsubscribe();
+        unsubscribeGoal();
+      };
     }
     setEntries(localStore.loadEntries());
+    setWeeklyGoalState(localStore.loadWeeklyGoal());
     setLocalBackupAvailable(false);
     setLoaded(true);
   }, [user]);
@@ -93,6 +107,18 @@ export function useDashEntries() {
     setLocalBackupAvailable(false);
   }, []);
 
+  const setWeeklyGoal = useCallback(
+    async (goal: number | null): Promise<void> => {
+      if (user) {
+        await setCloudWeeklyGoal(user.uid, goal);
+        return;
+      }
+      localStore.saveWeeklyGoal(goal);
+      setWeeklyGoalState(goal);
+    },
+    [user]
+  );
+
   return {
     entries,
     loaded,
@@ -105,6 +131,8 @@ export function useDashEntries() {
     localBackupAvailable,
     importing,
     importLocalToCloud,
-    dismissLocalImportPrompt
+    dismissLocalImportPrompt,
+    weeklyGoal,
+    setWeeklyGoal
   };
 }

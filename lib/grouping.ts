@@ -1,6 +1,6 @@
 import type { DashEntry } from "./types";
 import { overallSummary } from "./calculations";
-import { dayOfWeekName } from "./time";
+import { dayOfWeekName, todayISODate } from "./time";
 
 export interface DayGroup {
   date: string;
@@ -105,4 +105,21 @@ export function groupByWeekThenDay(entries: DashEntry[]): WeekGroup[] {
   });
 
   return weeks.sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+}
+
+export interface CurrentWeekProgress {
+  weekStart: string;
+  weekEnd: string;
+  label: string;
+  totalEarnings: number;
+}
+
+/** Total earnings so far in the current Monday-Sunday week (0 if nothing logged yet this week). */
+export function currentWeekProgress(entries: DashEntry[]): CurrentWeekProgress {
+  const weekStart = weekStartFor(todayISODate());
+  const weekEnd = weekEndFor(weekStart);
+  const totalEarnings = entries
+    .filter((e) => e.date >= weekStart && e.date <= weekEnd)
+    .reduce((sum, e) => sum + e.earnings, 0);
+  return { weekStart, weekEnd, label: formatWeekLabel(weekStart, weekEnd), totalEarnings };
 }

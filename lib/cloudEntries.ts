@@ -7,6 +7,22 @@ function entriesCollection(uid: string) {
   return collection(getDb(), "users", uid, "entries");
 }
 
+function userDoc(uid: string) {
+  return doc(getDb(), "users", uid);
+}
+
+/** Live-subscribes to a user's weekly goal (stored on their user doc); call the returned function to unsubscribe. */
+export function subscribeToWeeklyGoal(uid: string, callback: (goal: number | null) => void): () => void {
+  return onSnapshot(userDoc(uid), (snapshot) => {
+    const goal = snapshot.data()?.weeklyGoal;
+    callback(typeof goal === "number" && goal > 0 ? goal : null);
+  });
+}
+
+export async function setCloudWeeklyGoal(uid: string, goal: number | null): Promise<void> {
+  await setDoc(userDoc(uid), { weeklyGoal: goal }, { merge: true });
+}
+
 /** Live-subscribes to a user's dash entries in Firestore; call the returned function to unsubscribe. */
 export function subscribeToEntries(uid: string, callback: (entries: DashEntry[]) => void): () => void {
   return onSnapshot(entriesCollection(uid), (snapshot) => {

@@ -10,6 +10,7 @@ import StatsSummary from "@/components/StatsSummary";
 import HistoryView from "@/components/HistoryView";
 import BestTimesPanel from "@/components/BestTimesPanel";
 import TimeWindowsPanel from "@/components/TimeWindowsPanel";
+import WeeklyGoalPanel from "@/components/WeeklyGoalPanel";
 import CalculatorPanel from "@/components/CalculatorPanel";
 import EarningsRateChart from "@/components/charts/EarningsRateChart";
 import EarningsOverTimeChart from "@/components/charts/EarningsOverTimeChart";
@@ -40,7 +41,9 @@ export default function Home() {
     localBackupAvailable,
     importing,
     importLocalToCloud,
-    dismissLocalImportPrompt
+    dismissLocalImportPrompt,
+    weeklyGoal,
+    setWeeklyGoal
   } = useDashEntries();
 
   function handleExport() {
@@ -182,6 +185,7 @@ export default function Home() {
 
           {tab === "insights" && (
             <div className="space-y-6">
+              <WeeklyGoalPanel entries={entries} weeklyGoal={weeklyGoal} onSetGoal={setWeeklyGoal} />
               <StatsSummary entries={entries} />
               <BestTimesPanel entries={entries} />
               <TimeWindowsPanel entries={entries} />
@@ -194,7 +198,7 @@ export default function Home() {
             </div>
           )}
 
-          {tab === "calculator" && <CalculatorPanel entries={entries} />}
+          {tab === "calculator" && <CalculatorPanel entries={entries} weeklyGoal={weeklyGoal} />}
 
           <p className="pb-6 text-center text-xs text-neutral-400">
             {isSignedIn

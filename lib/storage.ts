@@ -2,9 +2,27 @@ import { v4 as uuidv4 } from "uuid";
 import type { DashEntry, NewDashEntryInput } from "./types";
 
 const STORAGE_KEY = "dasher.entries.v1";
+const WEEKLY_GOAL_KEY = "dasher.weeklyGoal.v1";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
+}
+
+export function loadWeeklyGoal(): number | null {
+  if (!isBrowser()) return null;
+  const raw = window.localStorage.getItem(WEEKLY_GOAL_KEY);
+  if (!raw) return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+export function saveWeeklyGoal(value: number | null): void {
+  if (!isBrowser()) return;
+  if (value == null) {
+    window.localStorage.removeItem(WEEKLY_GOAL_KEY);
+  } else {
+    window.localStorage.setItem(WEEKLY_GOAL_KEY, String(value));
+  }
 }
 
 export function loadEntries(): DashEntry[] {
