@@ -37,6 +37,29 @@ function findTimeRange(text: string): { start: string; end: string } | null {
   return null;
 }
 
+const MONTH_NAMES = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+function monthNameToNumber(name: string): number | null {
+  const idx = MONTH_NAMES.indexOf(name.slice(0, 3).toLowerCase());
+  return idx === -1 ? null : idx + 1;
+}
+
+/**
+ * Finds a calendar date like "Jul 20, 2026", "July 20 2026", or "Jul 20" (year
+ * omitted — some screens don't print it, so the current year is assumed).
+ */
+function findDate(text: string): string | null {
+  const re = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})?\b/i;
+  const m = re.exec(text);
+  if (!m) return null;
+  const month = monthNameToNumber(m[1]);
+  if (month == null) return null;
+  const day = Number(m[2]);
+  if (day < 1 || day > 31) return null;
+  const year = m[3] ? Number(m[3]) : new Date().getFullYear();
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 /**
  * Extracts a duration (in minutes) from a snippet like "4h 23m", "4 hr", or "45 min".
  * "Xh Ym" is checked first since that's DoorDash's own format and unambiguous; a bare
@@ -212,6 +235,7 @@ function findLeadingMoney(text: string): number | null {
 export function parseDashText(text: string): ExtractedDashData {
   const lines = linesOf(text);
   const timeRange = findTimeRange(text);
+  const date = findDate(text);
 
   const { dash: dashTimeMinutes, active: activeTimeMinutes } = resolveDashAndActiveMinutes(
     lines,
@@ -222,6 +246,7 @@ export function parseDashText(text: string): ExtractedDashData {
 
   if (looksLikeWeeklySummary(text)) {
     const result: ExtractedDashData = {
+      date,
       startTime: timeRange?.start ?? null,
       endTime: timeRange?.end ?? null,
       dashTimeMinutes,
@@ -239,6 +264,7 @@ export function parseDashText(text: string): ExtractedDashData {
     valueNearKeyword(lines, /total pay|total earnings|earnings|you (?:made|earned)/i, extractMoney) ?? findLeadingMoney(text);
 
   const result: ExtractedDashData = {
+    date,
     startTime: timeRange?.start ?? null,
     endTime: timeRange?.end ?? null,
     dashTimeMinutes,
@@ -247,7 +273,7 @@ export function parseDashText(text: string): ExtractedDashData {
     deliveries
   };
 
-  const missing = (["startTime", "endTime", "dashTimeMinutes", "activeTimeMinutes", "earnings"] as const).filter(
+  const missing = (["date", "startTime", "endTime", "dashTimeMinutes", "activeTimeMinutes", "earnings"] as const).filter(
     (key) => result[key] == null
   );
   if (missing.length > 0) {

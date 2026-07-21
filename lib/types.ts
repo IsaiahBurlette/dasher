@@ -26,6 +26,7 @@ export interface DashEntry {
 export type NewDashEntryInput = Omit<DashEntry, "id" | "createdAt">;
 
 export interface ExtractedDashData {
+  date: string | null;
   startTime: string | null;
   endTime: string | null;
   dashTimeMinutes: number | null;

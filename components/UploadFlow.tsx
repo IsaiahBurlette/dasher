@@ -41,6 +41,7 @@ function minutesToParts(totalMinutes: number): { hours: string; minutes: string 
 
 function extractedToDraft(data: ExtractedDashData): DraftEntry {
   const draft = emptyDraft();
+  if (data.date) draft.date = data.date;
   if (data.startTime) draft.startTime = data.startTime;
   if (data.endTime) draft.endTime = data.endTime;
 
