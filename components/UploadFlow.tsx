@@ -102,6 +102,15 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  function handleManualEntry() {
+    setPreview(null);
+    setFileName(null);
+    setErrorMessage(null);
+    setWarning(null);
+    setDraft(emptyDraft());
+    setStatus("review");
+  }
+
   function handleSave() {
     const earnings = Number(draft.earnings);
     const dashTimeMinutes = Number(draft.dashTimeMinutes);
@@ -136,21 +145,34 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
       <h2 className="mb-3 text-lg font-semibold text-neutral-900 dark:text-neutral-100">Add a dash</h2>
 
       {status === "idle" && (
-        <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 p-10 text-center text-sm text-neutral-500 hover:border-brand-400 hover:text-brand-500 dark:border-neutral-700 dark:text-neutral-400">
-          <span className="text-2xl">📸</span>
-          <span>Click to upload a screenshot of your dash summary</span>
-          <span className="text-xs text-neutral-400">PNG or JPG, up to 10MB</span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
-            }}
-          />
-        </label>
+        <div className="space-y-3">
+          <label className="flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 hover:border-brand-400 hover:text-brand-500 dark:border-neutral-700 dark:text-neutral-400 sm:p-10">
+            <span className="text-2xl">📸</span>
+            <span>Tap to take a photo or upload a screenshot of your dash summary</span>
+            <span className="text-xs text-neutral-400">PNG or JPG, up to 10MB</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFile(file);
+              }}
+            />
+          </label>
+          <div className="flex items-center gap-3 text-xs text-neutral-400">
+            <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
+            or
+            <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
+          </div>
+          <button
+            onClick={handleManualEntry}
+            className="w-full rounded-lg border border-neutral-300 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            Enter a dash manually (no screenshot)
+          </button>
+        </div>
       )}
 
       {status === "loading" && (
@@ -178,9 +200,9 @@ export default function UploadFlow({ onSaved }: { onSaved: (entry: DashEntry) =>
       )}
 
       {status === "review" && (
-        <div className="grid gap-5 md:grid-cols-[220px_1fr]">
+        <div className={`grid gap-5 ${preview ? "md:grid-cols-[220px_1fr]" : ""}`}>
           {preview && (
-            <img src={preview} alt="preview" className="h-fit max-h-72 rounded-lg border border-neutral-200 object-contain dark:border-neutral-800" />
+            <img src={preview} alt="preview" className="h-fit max-h-72 w-full rounded-lg border border-neutral-200 object-contain dark:border-neutral-800" />
           )}
           <div className="space-y-3">
             {warning && (

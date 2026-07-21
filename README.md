@@ -9,6 +9,7 @@ Upload a screenshot of a completed DoorDash "dash" summary and get:
   down by day of week and by start hour
 - A "best times to dash" panel that ranks your days/hours by average
   active $/hr (once you've logged a couple of dashes in the same bucket)
+- Manual entry (no screenshot needed) and one-tap delete on any logged dash
 
 ## How it works
 
@@ -39,8 +40,12 @@ optional and defaults to `claude-sonnet-5`.
 
 ## Notes
 
-- Because history lives in `localStorage`, it's per-browser. Clearing site
-  data or switching browsers/devices will lose it unless you've exported a
-  backup first.
+- Because history lives in `localStorage`, it's per-browser and per-device —
+  no login, nothing synced to a server. Clearing site data, reinstalling the
+  browser, or switching browsers/devices will lose it unless you've exported
+  a backup first. On iOS Safari in particular, sites not saved to the home
+  screen can have their storage cleared after a week of not being opened —
+  export a backup periodically if you rely on this, or add the page to your
+  home screen (Share → Add to Home Screen) to avoid that.
 - "Best times to dash" needs at least 2 logged dashes in the same
   day-of-week or start-hour bucket before it will rank that bucket.
